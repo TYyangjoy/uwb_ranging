@@ -13,28 +13,13 @@ from math import sin, cos, radians, sqrt, pi, atan, acos, atan
 import numpy as np
 import pandas as pd
 from scipy import optimize
-from scipy.optimize import lsq_linear, root, minimize
+from scipy.optimize import lsq_linear, root, minimize, least_squares
 #from scipy.optimize import lsq_linear
 # from smbus import SMBus
 from datetime import datetime
 # from kalmanfilter import KalmanFilter
 
 
-# start_time = datetime.now().strftime("%H_%M_%S")
-
-def find_ports():
-    ports = glob.glob('/dev/cu.usbmodem1422401') #/dev/ttyACM[0-4]*
-    res = []
-    for port in ports:
-        try:
-            s = serial.Serial(port)
-            s.close()
-            res.append(port)
-            print('port: ', res)
-        except:
-            print('wrong port!')
-
-    return res
 def ToA_stage_one(distances_to_anchors, anchor_positions): ##x 和 y 軸是準的 ，z軸在共平面時又大誤差
     distances_to_anchors, anchor_positions = np.array(distances_to_anchors), np.array(anchor_positions)
     if not np.all(distances_to_anchors):
@@ -63,13 +48,21 @@ def ToA(distances_to_anchors, anchor_num, anchor_positions): ##找較準確的z
     function = lambda z: z**3 - a*z + b
     derivative = lambda z: 3*z**2 - a
 
-    ranges = (slice(0, 3, 0.05), )
+    ranges = (slice(0, 3, 0.01), )
     resbrute = optimize.brute(cost, ranges, full_output = True, finish = None)
     if resbrute[0] > 0 or resbrute[0] < -2 :
         resbrute = optimize.brute(cost, ranges, full_output = True, finish = None)
     new_tag_pos = [tag_pos[0],tag_pos[1],resbrute[0]]
     
     return new_tag_pos
+
+def trilateration_3d(anchor_positions, distances):
+    def fun(x, anchor_positions, distances):
+        return np.linalg.norm(anchor_positions - x, axis=1) - distances
+
+    initial_position = np.mean(anchor_positions, axis=0)  # Use the centroid of anchor positions as the initial guess
+    res = least_squares(fun, initial_position, args=(anchor_positions, distances), method='lm')
+    return res.x
 
 
 ser_UWB = serial.Serial('/dev/cu.usbmodem1422401', baudrate = 115200)
@@ -80,7 +73,12 @@ while True :
     if(rx != ' ' and rx.find('mc') >= 0):
         dis = rx.split(' ')
         dis_array = np.array([(int(dis[2],16)),(int(dis[3],16)), (int(dis[4],16)), (int(dis[5],16))])/1000.0
-        dis_array = dis_array - 0.6
-        anchor_positions =[[13,1.5,1.3],[3.5,1.5,1.83],[3.5,7,1.36],[13,7,2.2]]
-        print(ToA(dis_array, 4, anchor_positions))
+        if (0 not in dis_array):
+            dis_array = dis_array - 0.6
+            anchor_positions =[[13,0.13,2.91],[13.67,7.36,2.95],[1.13,7.44,2.89],[1.13,1.26,2.84]]
+            error = (trilateration_3d(anchor_positions, dis_array))
+            error1 = (ToA(dis_array,4,anchor_positions))
+            print("tril: ",error[0],error[1])
+            # print("ToA: ",error1[0],error1[1])
+            print(" ")
                             
