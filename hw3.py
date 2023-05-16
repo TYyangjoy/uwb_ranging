@@ -75,10 +75,8 @@ while True :
         dis_array = np.array([(int(dis[2],16)),(int(dis[3],16)), (int(dis[4],16)), (int(dis[5],16))])/1000.0
         if (0 not in dis_array):
             dis_array = dis_array - 0.6
-            anchor_positions =[[13,0.13,2.91],[13.67,7.36,2.95],[1.13,7.44,2.89],[1.13,1.26,2.84]]
+            anchor_positions =[[13,0.13,1.08],[12.5,7.5,1.1],[1.13,7.44,1.18],[1.13,1.26,1.02]]
             error = (trilateration_3d(anchor_positions, dis_array))
             error1 = (ToA(dis_array,4,anchor_positions))
-            print("tril: ",error[0],error[1])
-            # print("ToA: ",error1[0],error1[1])
-            print(" ")
+            print(str(error[0]) + " " + str(error[1]) )
                             
